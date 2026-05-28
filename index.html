@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>農薬 希釈倍率 計算ツール</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Bebas+Neue&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
+      padding: 24px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 20px;
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 420px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    .title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 13px;
+      letter-spacing: 4px;
+      color: #5ec9f0;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .heading {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 32px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: #5ec9f0;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .input-group {
+      position: relative;
+      margin-bottom: 28px;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      color: #fff;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 36px;
+      letter-spacing: 2px;
+      padding: 16px 80px 16px 20px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .input-field:focus { border-color: #5ec9f0; }
+    .input-field::placeholder { color: rgba(255,255,255,0.2); }
+    .input-field::-webkit-outer-spin-button,
+    .input-field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .input-field[type=number] { -moz-appearance: textfield; }
+
+    .input-unit {
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #5ec9f0;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      pointer-events: none;
+    }
+
+    .result-box {
+      margin-top: 28px;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .result-box.show { opacity: 1; transform: translateY(0); }
+
+    .result-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 24px;
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .result-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: #9abccc;
+    }
+
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .result-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 32px;
+      color: #fff;
+      letter-spacing: 1px;
+    }
+
+    .result-sub {
+      font-size: 11px;
+      color: #5ec9f0;
+      text-align: right;
+      margin-bottom: 12px;
+    }
+
+    .bar-container {
+      height: 8px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 20px;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #5ec9f0, #2d9bc9);
+      transition: width 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #5a8090;
+      margin-top: 5px;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    const { useState, useEffect, useRef } = React;
+
+    function PesticideCalc() {
+      const [ratio, setRatio] = useState(500);
+      const [volume, setVolume] = useState(10);
+      const [result, setResult] = useState(null);
+      const [show, setShow] = useState(false);
+
+      function calculate(r, v) {
+        if (!r || !v || r <= 0 || v <= 0) { setResult(null); setShow(false); return; }
+        const stockL = v / r;
+        const stockMl = stockL * 1000;
+        const waterL = v - stockL;
+        setResult({ stockL, stockMl, waterL, ratio: r });
+        setShow(false);
+        setTimeout(() => setShow(true), 10);
+      }
+
+      useEffect(() => { calculate(500, 10); }, []);
+
+      function handleRatio(e) {
+        const v = parseFloat(e.target.value);
+        setRatio(v);
+        calculate(v, volume);
+      }
+
+      function handleVolume(e) {
+        const v = parseFloat(e.target.value);
+        setVolume(v);
+        calculate(ratio, v);
+      }
+
+      return React.createElement('div', { className: 'card' },
+        React.createElement('p', { className: 'title' }, 'Agricultural Tool'),
+        React.createElement('h1', { className: 'heading' }, '農薬 希釈倍率 計算'),
+
+        React.createElement('div', { className: 'section-label' }, '希釈倍率'),
+        React.createElement('div', { className: 'input-group' },
+          React.createElement('input', {
+            className: 'input-field',
+            type: 'number',
+            value: ratio,
+            min: '1',
+            placeholder: '例：500',
+            onChange: handleRatio
+          }),
+          React.createElement('span', { className: 'input-unit' }, '倍')
+        ),
+
+        React.createElement('div', { className: 'section-label' }, '作りたい薬液量'),
+        React.createElement('div', { className: 'input-group' },
+          React.createElement('input', {
+            className: 'input-field',
+            type: 'number',
+            value: volume,
+            min: '0.1',
+            step: '0.1',
+            placeholder: '例：10',
+            onChange: handleVolume
+          }),
+          React.createElement('span', { className: 'input-unit' }, 'L')
+        ),
+
+        result && React.createElement('div', { className: 'result-box' + (show ? ' show' : '') },
+          React.createElement('hr', { className: 'result-divider' }),
+
+          React.createElement('div', { className: 'result-row' },
+            React.createElement('div', { className: 'result-label' },
+              React.createElement('span', { className: 'dot', style: { background: '#5ec9f0' } }),
+              '原液量'
+            ),
+            React.createElement('div', { className: 'result-value' },
+              result.stockMl.toFixed(1) + ' mL'
+            )
+          ),
+          React.createElement('div', { className: 'result-sub' },
+            '≈ ' + result.stockL.toFixed(4) + ' L'
+          ),
+
+          React.createElement('div', { className: 'result-row' },
+            React.createElement('div', { className: 'result-label' },
+              React.createElement('span', { className: 'dot', style: { background: '#2d5f80' } }),
+              '水の量'
+            ),
+            React.createElement('div', { className: 'result-value' },
+              result.waterL.toFixed(2) + ' L'
+            )
+          ),
+
+          React.createElement('div', { className: 'bar-container' },
+            React.createElement('div', {
+              className: 'bar-fill',
+              style: { width: Math.min((1 / result.ratio) * 1000, 100) + '%' }
+            })
+          ),
+          React.createElement('div', { className: 'bar-label' },
+            React.createElement('span', null, '原液 ' + (1 / result.ratio * 100).toFixed(3) + '%'),
+            React.createElement('span', null, '水 ' + ((result.ratio - 1) / result.ratio * 100).toFixed(2) + '%')
+          )
+        )
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(PesticideCalc));
+  </script>
+</body>
+</html>
